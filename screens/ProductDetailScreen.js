@@ -1,8 +1,16 @@
-import { useState, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Image, ScrollView, StyleSheet } from 'react-native';
-import { Text, Button, Chip, IconButton, Snackbar, useTheme } from 'react-native-paper';
+import {
+  Text,
+  Button,
+  Chip,
+  IconButton,
+  Snackbar,
+  ActivityIndicator,
+  useTheme,
+} from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { products } from '../data/products';
+import { fetchProduct } from '../services/products';
 import { useCart } from '../context/CartContext';
 import useScreenLog from '../hooks/useScreenLog';
 import useBreakpoint, { BREAKPOINTS } from '../hooks/useBreakpoint';
@@ -15,15 +23,26 @@ export default function ProductDetailScreen({ route, navigation }) {
   useScreenLog();
   const { addItem } = useCart();
   const { productId } = route.params;
-  const index = products.findIndex((item) => item.id === productId);
-  const product = products[index];
-  const nextProduct = products[(index + 1) % products.length];
+  const [product, setProduct] = useState(null);
+
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useBreakpoint();
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState('');
   const [favorite, setFavorite] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchProduct(productId)
+      .then((result) => {
+        if (!cancelled) setProduct(result);
+      })
+      .catch((error) => console.log('Could not load product:', error.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -40,8 +59,8 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   if (!product) {
     return (
-      <View style={styles.notFound}>
-        <Text variant="titleMedium">Product not found</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator />
       </View>
     );
   }
@@ -104,12 +123,6 @@ export default function ProductDetailScreen({ route, navigation }) {
             <Button mode="contained" disabled={outOfStock} onPress={handleAddToCart}>
               Add to cart
             </Button>
-            <Button
-              mode="outlined"
-              onPress={() => navigation.push('ProductDetail', { productId: nextProduct.id })}
-            >
-              See next product
-            </Button>
           </View>
         </View>
       </ScrollView>
@@ -126,7 +139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  notFound: {
+  centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
