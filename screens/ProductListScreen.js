@@ -34,7 +34,7 @@ export default function ProductListScreen({ navigation }) {
   const gridData = padToFullRows(visibleProducts, numColumns);
 
   const openProduct = (product) => {
-    navigation.navigate('ProductDetail', { product });
+    navigation.navigate('ProductDetail', { productId: product.id });
   };
 
   const handleAdd = (product) => {
