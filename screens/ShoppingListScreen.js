@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { View, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { View, FlatList, Linking, RefreshControl, StyleSheet } from 'react-native';
 import { Button, Divider, IconButton, List, Snackbar, Text, TextInput } from 'react-native-paper';
 import ErrorState from '../components/ErrorState';
 import ListSkeleton from '../components/ListSkeleton';
 import OfflineBanner from '../components/OfflineBanner';
+import useLocationTags from '../hooks/useLocationTags';
 import useShoppingList from '../hooks/useShoppingList';
+import { formatCoords } from '../utils/format';
 import { colors, spacing } from '../theme';
 
 export default function ShoppingListScreen() {
   const { items, status, error, refreshing, reload, refresh, add, toggle, remove } =
     useShoppingList();
+  const { tags, tagItem, clearTag } = useLocationTags();
   const [name, setName] = useState('');
   const [adding, setAdding] = useState(false);
   const [message, setMessage] = useState('');
+  const [needsSettings, setNeedsSettings] = useState(false);
 
   const handleAdd = async () => {
     const trimmed = name.trim();
@@ -30,7 +34,23 @@ export default function ShoppingListScreen() {
   };
 
   const report = (result) => {
-    if (!result.ok) setMessage(result.message);
+    if (!result.ok) {
+      setNeedsSettings(false);
+      setMessage(result.message);
+    }
+  };
+
+  // Tap once to tag the item with where you are now. Tap again to remove the tag.
+  const handleTag = async (item) => {
+    if (tags[item.id]) {
+      clearTag(item.id);
+      return;
+    }
+    const result = await tagItem(item.id);
+    if (!result.ok) {
+      setNeedsSettings(result.needsSettings);
+      setMessage(result.message);
+    }
   };
 
   const handleRefresh = async () => {
@@ -81,12 +101,14 @@ export default function ShoppingListScreen() {
         keyExtractor={(item) => item.id}
         ItemSeparatorComponent={Divider}
         ListEmptyComponent={emptyComponent}
+        extraData={tags}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
         renderItem={({ item }) => (
           <List.Item
             title={item.name}
+            description={tags[item.id] ? `Tagged at ${formatCoords(tags[item.id])}` : undefined}
             titleStyle={item.done && styles.done}
             accessibilityRole="checkbox"
             accessibilityLabel={item.name}
@@ -100,17 +122,34 @@ export default function ShoppingListScreen() {
               />
             )}
             right={() => (
-              <IconButton
-                icon="delete-outline"
-                accessibilityLabel={`Remove ${item.name}`}
-                onPress={async () => report(await remove(item))}
-              />
+              <View style={styles.actions}>
+                <IconButton
+                  icon={tags[item.id] ? 'map-marker-check' : 'map-marker-plus-outline'}
+                  iconColor={tags[item.id] ? colors.primary : colors.muted}
+                  accessibilityLabel={
+                    tags[item.id]
+                      ? `Remove location tag from ${item.name}`
+                      : `Tag ${item.name} with my location`
+                  }
+                  onPress={() => handleTag(item)}
+                />
+                <IconButton
+                  icon="delete-outline"
+                  accessibilityLabel={`Remove ${item.name}`}
+                  onPress={async () => report(await remove(item))}
+                />
+              </View>
             )}
           />
         )}
       />
 
-      <Snackbar visible={message !== ''} onDismiss={() => setMessage('')} duration={3000}>
+      <Snackbar
+        visible={message !== ''}
+        onDismiss={() => setMessage('')}
+        duration={3000}
+        action={needsSettings ? { label: 'Settings', onPress: () => Linking.openSettings() } : undefined}
+      >
         {message}
       </Snackbar>
     </View>
@@ -130,6 +169,10 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   done: {
     textDecorationLine: 'line-through',

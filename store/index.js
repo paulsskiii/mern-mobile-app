@@ -12,8 +12,10 @@ import {
 } from 'redux-persist';
 import devToolsEnhancer from 'redux-devtools-expo-dev-plugin';
 import cartReducer from './cartSlice';
+import listReducer from './listSlice';
 import productsReducer from './productsSlice';
 import profileReducer from './profileSlice';
+import tagsReducer from './tagsSlice';
 import { logger } from './logger';
 
 // Some slices hold things that must NOT survive a restart (a saved "loading" status, a running upload).
@@ -30,17 +32,26 @@ const profilePersistConfig = {
   whitelist: ['avatarUrl', 'pendingAvatar'],
 };
 
+const listPersistConfig = {
+  key: 'list',
+  storage: AsyncStorage,
+  whitelist: ['items', 'lastUpdated'],
+};
+
 const rootReducer = combineReducers({
   cart: cartReducer,
+  tags: tagsReducer,
   products: persistReducer(productsPersistConfig, productsReducer),
   profile: persistReducer(profilePersistConfig, profileReducer),
+  list: persistReducer(listPersistConfig, listReducer),
 });
 
-// The root config saves everything except the two slices above, which look after themselves.
+// The root config saves everything except the slices above, which look after themselves.
+// (cart and tags have no temporary state, so the root config can save them whole.)
 const rootPersistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  blacklist: ['products', 'profile'],
+  blacklist: ['products', 'profile', 'list'],
 };
 
 export const store = configureStore({

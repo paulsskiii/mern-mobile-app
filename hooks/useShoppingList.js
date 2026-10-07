@@ -1,45 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
-import { createItem, deleteItem, fetchItems, setItemDone } from '../services/tasks';
+import { useCallback, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
-import { getErrorMessage } from '../lib/errors';
-import { ensureOnline } from '../lib/network';
+import {
+  addListItem,
+  loadList,
+  refreshList,
+  removeListItem,
+  selectListError,
+  selectListItems,
+  selectListRefreshing,
+  selectListStatus,
+  toggleListItem,
+} from '../store/listSlice';
 import useOnReconnect from './useOnReconnect';
 
-// The shopping list: loading state, plus add / toggle / remove.
+// The shopping list, now kept in Redux. The hook still returns exactly what it returned on Day 4,
+// so the screen does not have to change.
 // add, toggle and remove return { ok: true } when the server accepted the change, or { ok: false, message } when it did not.
 export default function useShoppingList() {
   const { user } = useAuth();
-  const [items, setItems] = useState([]);
-  const [status, setStatus] = useState('loading');
-  const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const dispatch = useDispatch();
+  const items = useSelector(selectListItems);
+  const storeStatus = useSelector(selectListStatus);
+  const error = useSelector(selectListError);
+  const refreshing = useSelector(selectListRefreshing);
 
-  const reload = useCallback(async () => {
-    setStatus('loading');
-    setError('');
-    try {
-      await ensureOnline();
-      setItems(await fetchItems(user.id));
-      setStatus('success');
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setStatus('error');
-    }
-  }, [user.id]);
+  // Before the first request starts the store says 'idle'. To the screen that is still "loading".
+  const status = storeStatus === 'idle' ? 'loading' : storeStatus;
+
+  const reload = useCallback(() => dispatch(loadList(user.id)), [dispatch, user.id]);
 
   const refresh = useCallback(async () => {
-    setRefreshing(true);
     try {
-      await ensureOnline();
-      setItems(await fetchItems(user.id));
-      setStatus('success');
+      await dispatch(refreshList(user.id)).unwrap();
       return true;
     } catch (err) {
       return false;
-    } finally {
-      setRefreshing(false);
     }
-  }, [user.id]);
+  }, [dispatch, user.id]);
 
   useEffect(() => {
     reload();
@@ -47,45 +45,23 @@ export default function useShoppingList() {
 
   useOnReconnect(refresh);
 
-  // Wait for the server, then show the new item at the top.
-  const add = useCallback(async (name) => {
-    try {
-      await ensureOnline();
-      const created = await createItem(name);
-      setItems((current) => [created, ...current]);
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, message: getErrorMessage(err) };
-    }
-  }, []);
+  // Runs a thunk and turns "fulfilled" or "rejected" into the { ok, message } answer the screen expects.
+  // unwrap() throws the rejected payload, which is the friendly message the thunk produced.
+  const run = useCallback(
+    async (thunkAction) => {
+      try {
+        await dispatch(thunkAction).unwrap();
+        return { ok: true };
+      } catch (thrown) {
+        return { ok: false, message: typeof thrown === 'string' ? thrown : thrown.message };
+      }
+    },
+    [dispatch]
+  );
 
-  // Optimistic: flip the checkbox straight away, and flip it back if the server says no.
-  const toggle = useCallback(async (item) => {
-    const setDone = (id, done) =>
-      setItems((current) => current.map((i) => (i.id === id ? { ...i, done } : i)));
-
-    setDone(item.id, !item.done);
-    try {
-      await ensureOnline();
-      await setItemDone(item.id, !item.done);
-      return { ok: true };
-    } catch (err) {
-      setDone(item.id, item.done);
-      return { ok: false, message: getErrorMessage(err) };
-    }
-  }, []);
-
-  // Not optimistic: the row only disappears once the server has deleted it.
-  const remove = useCallback(async (item) => {
-    try {
-      await ensureOnline();
-      await deleteItem(item.id);
-      setItems((current) => current.filter((i) => i.id !== item.id));
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, message: getErrorMessage(err) };
-    }
-  }, []);
+  const add = useCallback((name) => run(addListItem(name)), [run]);
+  const toggle = useCallback((item) => run(toggleListItem(item)), [run]);
+  const remove = useCallback((item) => run(removeListItem(item)), [run]);
 
   return { items, status, error, refreshing, reload, refresh, add, toggle, remove };
 }
