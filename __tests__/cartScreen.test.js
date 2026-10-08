@@ -31,3 +31,24 @@ test('removing an item updates the screen and the store', async () => {
   expect(screen.getByText('Bucket Hat')).toBeTruthy();
   expect(store.getState().cart.items).toHaveLength(1);
 });
+
+test('changing one line re-renders only that line', () => {
+  const { act } = require('@testing-library/react-native');
+  const { addItem } = require('../store/cartSlice');
+  const rowIds = [];
+  jest.spyOn(console, 'log').mockImplementation((tag, name, id) => {
+    if (tag === '[render]' && name === 'CartRow') rowIds.push(id);
+  });
+
+  const { store } = renderWithStore(<CartScreen />, {
+    preloadedState: { cart: { items: [{ product: tote, quantity: 1 }, { product: hat, quantity: 1 }] } },
+  });
+  rowIds.length = 0;
+
+  act(() => {
+    store.dispatch(addItem(tote));
+  });
+
+  expect(rowIds).toEqual(['1']);
+  console.log.mockRestore();
+});
