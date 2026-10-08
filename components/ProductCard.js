@@ -9,7 +9,7 @@ import { sizedImageUrl } from '../utils/imageUrl';
 // The widest card (iPad, 4 columns) is about 250 points wide, so ask the server for that, not for the full 600.
 const CARD_IMAGE_WIDTH = 250;
 
-// A neutral grey-green blur shown while the real photo downloads.
+// A neutral grey-beige blur shown while the real photo downloads.
 const BLURHASH = 'L6PZfSi_.AyE_3t7t7R**0o#DgR4';
 
 export default function ProductCard({ product, onAdd }) {
