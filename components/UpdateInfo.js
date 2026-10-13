@@ -5,7 +5,7 @@ import { colors } from '../theme';
 
 export default function UpdateInfo() {
   const updateId = Updates.updateId ?? 'embedded (no update downloaded)';
-  const channel = Updates.channel ?? 'none';
+  const channel = Updates.channel || 'none';
 
   return (
     <>
