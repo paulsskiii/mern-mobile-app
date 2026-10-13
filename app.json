@@ -3,6 +3,12 @@
     "name": "Shopfront",
     "slug": "mern-mobile-app",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/YOUR-EAS-PROJECT-ID"
+    },
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
