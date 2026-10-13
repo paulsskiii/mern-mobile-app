@@ -47,7 +47,8 @@
         {
           "locationWhenInUsePermission": "Shopfront uses your location to show where you are and to tag where you shop."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
